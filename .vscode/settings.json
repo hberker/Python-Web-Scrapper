@@ -1,0 +1,8 @@
+{
+    "C_Cpp.intelliSenseEngineFallback": "Enabled",
+    "python.linting.enabled": true,
+    "python.pythonPath": "C:\\Python37\\python37.exe",
+    "python.linting.pylintEnabled": true,
+    "python.linting.flake8Enabled": false,
+    "python.linting.mypyEnabled": false
+}
