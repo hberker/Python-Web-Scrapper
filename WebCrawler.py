@@ -2,8 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 import csv
+import os
 
 class Scraper(object):
+    
     MaxPages = 0
     Connections = []
     Frontier = []
@@ -11,12 +13,16 @@ class Scraper(object):
     Context = []
    
     
-
-    def __init__(self, Filename,Tables, URL):
+    def __init__(self, Filename, URL):
         print("Crawler crawling...\n")
-        self.Outfile = open(Filename, "w")
+
+        if os.path.exists(Filename):
+            replace = input("Already a file with this Name. Replace?(y/n): ")
+            if replace != "y":
+                return 0
+                
+        self.Outfile = open(Filename, "w",newline='')
         self.Writer = csv.writer(self.Outfile)
-        self.Writer.writerow(Tables)        
         self.parsePageForLinks(URL)   
 
     def parsePageForLinks(self, aPage):
@@ -37,7 +43,70 @@ class Scraper(object):
         if isinstance(element, Comment):
             return False
         return True
+    def scrapeCollegeSimply(self ):
+        actScore = input("What was you ACT score? (1-36): ")
+        actScore.strip()
+        new = ""
+        for letter in actScore:
+	        if not(actScore.isalpha()):
+		        new+=letter
+        actScore = new
 
+        if actScore == "" or int(actScore) < 1 or int(actScore) >36:
+            actScore = "25"
+            print("Must be in range!\nDefaulting score to 25...\n")
+        pageCont = requests.get("https://www.collegesimply.com/guides/%s-on-the-act/?view=all" % actScore)
+        soup = BeautifulSoup(pageCont.text, 'lxml')
+
+        tables = soup.find_all('tbody')
+        entries =soup.find_all('tr')
+        data = [[]]
+        index = 0
+        for t in entries:
+            tds = t.find_all('td')
+            tempData = []
+            for td in tds:
+                text =  (td.text)
+                text = td.text.replace("\n\n", " | ")
+                text = text.replace("\n"," | ")
+                text = text.replace('\t','')
+                text = text.replace('\r','')
+
+                text = text.split(" | ")
+                for i in text:
+                    if i == "":
+                        text.remove(i)
+                if len(text) > 0:
+                    for i in text:
+                        tempData.append(i)
+                else:
+                    tempData.append(text)
+            if len(tempData) > 0:
+                tempData.pop()
+                tempData.pop()
+                tempData.pop()
+
+            
+            tempData[:] = [str(i).replace(' ACT Average', '') for i in tempData]  
+            tempData[:] = [str(i).replace('%', '') for i in tempData]  
+
+            data.append(tempData)
+            index += 1
+        
+        for tbls in data:
+            toSend = []
+            if len(tbls) > 0:
+                tbls[1], tbls[2] = tbls[2], tbls[1]
+                tbls[2],tbls[3] = tbls[3],tbls[2]
+                #tbls[1] , tbls[3] = tbls[3], tbls[1]
+
+            for i in tbls:
+                if( i != ""):
+                    
+                    toSend.append(i)
+            if(toSend):
+                self.sendOutData(toSend)
+        print ("Finished!")
 
     def parsePageForString(self, aPage,stringList):
         stringCount = 0
@@ -103,10 +172,26 @@ class Scraper(object):
     
     def sendOutData(self, data):#[str(string), returnVal[0], link, i]
         self.Writer.writerow(data)
+    
+
+    def printConnections(self):
+        self.loopEnd("")\
+
+        for i in self.Connections:
+            print("Connection: " + i)
+
+
+    def printContext(self):
+        self.loopEnd("")
+
+        for i in self.Context:
+                print("Context: " + str(i))
+        print("Links Scraped: " + str(len(self.Frontier)))
+
+
     def parsePagesForOccurances(self,string, stopAt):#assumes PPFL() has been run
         totalOccurances = 0
         visits = 0
-        
         index = 0
         while(index < len(self.Frontier) and visits < stopAt):
             link = self.Frontier[index]
@@ -143,14 +228,7 @@ class Scraper(object):
 #writer = csv.writer(outfile)
 #writer.writerow(["Word","Occurances", "Url", "Text"])
 
-scraper = Scraper("./scrap.csv", ["Word","Occurances", "Url", "Text"], 'http://www.startrek.com/')
-scraper.scrapForFixedData(["New"],5)
+scraper = Scraper("./colleges.csv", 'http://www.startrek.com/')
+scraper.sendOutData(['Name', 'Location', 'ACT 25th', 'Average ACT', 'ACT 75th', 'Type', 'Percent Chance(%)'])
+scraper.scrapeCollegeSimply()
 
-
-set(scraper.Frontier)
-for i in scraper.Connections:
-    print("Connection: " + i)
-
-for i in scraper.Context:
-    print("Context: " + str(i))
-print("Pages Scraped: " + str(len(scraper.Frontier)))
